@@ -1,0 +1,37 @@
+# The hosted deploy agent on qh-dev-control. Socket Mode → no Service/Ingress, nothing public.
+# Needs two secrets in namespace deploy-portal (see agent/deploy/README.md):
+#   deploy-agent-secrets : SLACK_BOT_TOKEN, SLACK_APP_TOKEN, ANTHROPIC_API_KEY
+#   qh-deploy-key        : id  (WRITE deploy key for qh-deployment)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deploy-agent
+  namespace: deploy-portal
+  labels:
+    app: deploy-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: deploy-agent
+  template:
+    metadata:
+      labels:
+        app: deploy-agent
+    spec:
+      containers:
+        - name: agent
+          image: us-docker.pkg.dev/qh-mgmt-439315/qh-docker/deploy-agent:latest
+          envFrom:
+            - secretRef:
+                name: deploy-agent-secrets
+          volumeMounts:
+            - { name: work, mountPath: /work }
+            - { name: key, mountPath: /keys, readOnly: true }
+      volumes:
+        - name: work
+          emptyDir: {}
+        - name: key
+          secret:
+            secretName: qh-deploy-key
+            defaultMode: 0600
