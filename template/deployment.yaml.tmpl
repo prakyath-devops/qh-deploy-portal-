@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{SVC_NAME}}
+  namespace: {{NAMESPACE}}
+  labels:
+    app: {{SVC_NAME}}
+    qh-tool/name: {{NAME}}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{SVC_NAME}}
+  template:
+    metadata:
+      labels:
+        app: {{SVC_NAME}}
+    spec:
+      containers:
+        - name: {{COMP_NAME}}
+          image: {{IMAGE}}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: {{PORT}}
+{{ENV_SECTION}}

@@ -1,0 +1,72 @@
+# Bundled per-tool Postgres. NON-PHI ONLY. No backup/PITR. Dies with the tool.
+# Password is generated at scaffold time and committed to git (accepted for v1: in-namespace
+# ClusterIP only, non-PHI). Reachable at {{NAME}}-postgres:5432 inside the namespace.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{NAME}}-db
+  namespace: {{NAMESPACE}}
+  labels:
+    qh-tool/name: {{NAME}}
+stringData:
+  POSTGRES_DB: {{DB_NAME}}
+  POSTGRES_USER: {{DB_USER}}
+  POSTGRES_PASSWORD: {{DB_PASSWORD}}
+  DATABASE_URL: postgresql://{{DB_USER}}:{{DB_PASSWORD}}@{{NAME}}-postgres:5432/{{DB_NAME}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{NAME}}-postgres
+  namespace: {{NAMESPACE}}
+  labels:
+    qh-tool/name: {{NAME}}
+spec:
+  clusterIP: None
+  selector:
+    app: {{NAME}}-postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{NAME}}-postgres
+  namespace: {{NAMESPACE}}
+  labels:
+    qh-tool/name: {{NAME}}
+spec:
+  serviceName: {{NAME}}-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{NAME}}-postgres
+  template:
+    metadata:
+      labels:
+        app: {{NAME}}-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          envFrom:
+            - secretRef:
+                name: {{NAME}}-db
+          env:
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          ports:
+            - containerPort: 5432
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ ReadWriteOnce ]
+        storageClassName: standard-rwo
+        resources:
+          requests:
+            storage: 5Gi

@@ -1,0 +1,59 @@
+# One-time install into qh-dev-control. Deletes expired tools from git daily.
+# Requires a WRITE deploy key for qh-deployment as secret `qh-deploy-key` (key: id).
+#
+# Create the secret once:
+#   kubectl -n deploy-portal create secret generic qh-deploy-key --from-file=id=<path-to-private-key>
+#
+# This manifest can itself be scaffolded as a control-plane tool, or applied directly.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: deploy-portal
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: reaper-src
+  namespace: deploy-portal
+data:
+  reaper.py: |
+    # populated from reaper/reaper.py — kubectl create configmap reaper-src --from-file=reaper.py
+    # (kept here as a placeholder; use the Makefile/README step to sync the real file)
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: tool-reaper
+  namespace: deploy-portal
+spec:
+  schedule: "17 3 * * *"          # daily 03:17 UTC
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: reaper
+              image: python:3.12-slim
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -e
+                  apt-get update -qq && apt-get install -y -qq git openssh-client >/dev/null
+                  pip install -q pyyaml
+                  mkdir -p ~/.ssh && cp /keys/id ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+                  ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
+                  python /src/reaper.py
+              env:
+                - name: GIT_SSH_COMMAND
+                  value: "ssh -i /root/.ssh/id_ed25519 -o StrictHostKeyChecking=no"
+              volumeMounts:
+                - { name: src, mountPath: /src }
+                - { name: key, mountPath: /keys, readOnly: true }
+          volumes:
+            - name: src
+              configMap: { name: reaper-src }
+            - name: key
+              secret: { secretName: qh-deploy-key, defaultMode: 0600 }

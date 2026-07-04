@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{NAMESPACE}}
+  labels:
+    qh-tool/name: {{NAME}}
+    qh-tool/owner: {{OWNER}}
+    qh-tool/managed: "true"
+  annotations:
+    qh-tool/expires-at: "{{EXPIRES_AT}}"

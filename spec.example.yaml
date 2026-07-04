@@ -1,0 +1,19 @@
+# Example tool spec. The agent produces this from a chat request; you can also hand-write it.
+name: inventory            # dns-safe: [a-z0-9-], <=40 chars. becomes ns tools-inventory + hostname
+ttl_days: 30               # reaper deletes the tool after this many days
+db: true                   # bundle an in-cluster Postgres (non-PHI only); injects DATABASE_URL
+
+components:
+  # A "simple app" can be ONE component (backend serves the frontend) — this example shows two.
+  - name: frontend
+    image: us-docker.pkg.dev/qh-mgmt-439315/qh-docker/inventory-fe:v1
+    port: 3000
+    public: true           # exactly one component must be public -> it gets the ingress + URL
+    env:
+      - name: BACKEND_URL
+        value: http://inventory-backend:8080   # <name>-<component> in-cluster service DNS
+
+  - name: backend
+    image: us-docker.pkg.dev/qh-mgmt-439315/qh-docker/inventory-be:v1
+    port: 8080
+    public: false          # ClusterIP only — reachable in-namespace, never exposed
