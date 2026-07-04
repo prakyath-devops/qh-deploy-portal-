@@ -5,7 +5,8 @@ mkdir -p "$HOME/.ssh"
 cp /keys/id "$HOME/.ssh/id_ed25519"
 chmod 600 "$HOME/.ssh/id_ed25519"
 ssh-keyscan github.com >> "$HOME/.ssh/known_hosts" 2>/dev/null
-export GIT_SSH_COMMAND="ssh -i $HOME/.ssh/id_ed25519 -o StrictHostKeyChecking=no"
+# IdentitiesOnly=yes → use ONLY this deploy key (scoped like the local core.sshCommand setup).
+export GIT_SSH_COMMAND="ssh -i $HOME/.ssh/id_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=no"
 
 : "${QH_DEPLOYMENT_PATH:=/work/qh-deployment}"
 : "${REPO_URL:=ssh://git@github.com/Qualified-Health/qh-deployment}"

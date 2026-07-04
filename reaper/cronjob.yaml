@@ -48,7 +48,7 @@ spec:
                   python /src/reaper.py
               env:
                 - name: GIT_SSH_COMMAND
-                  value: "ssh -i /root/.ssh/id_ed25519 -o StrictHostKeyChecking=no"
+                  value: "ssh -i /root/.ssh/id_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=no"
               volumeMounts:
                 - { name: src, mountPath: /src }
                 - { name: key, mountPath: /keys, readOnly: true }
