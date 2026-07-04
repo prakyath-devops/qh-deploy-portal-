@@ -18,6 +18,7 @@ Env:
 from __future__ import annotations
 
 import json
+import logging
 import os
 import subprocess
 import tempfile
@@ -26,6 +27,8 @@ import yaml
 from anthropic import Anthropic
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
 MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-5")
 DEPLOYMENT_PATH = os.environ.get("QH_DEPLOYMENT_PATH", "/work/qh-deployment")
@@ -41,12 +44,17 @@ You turn a plain-English request into a deployed internal tool on qh-dev-control
 https://<name>.tools-dev.qualifiedhealthai.com (on Tailscale). You do NOT build images or write
 YAML — you produce a spec and call deploy_tool.
 
-The person's image must: be one container image already pushed to
-us-docker.pkg.dev/qh-mgmt-439315/qh-docker/<name>:<tag>; listen on one HTTP port bound to
+The person's image must: be one container image already pushed to the qh-mgmt Artifact Registry
+(us-docker.pkg.dev/qh-mgmt-439315/qh-docker/<repo>:<tag>); listen on one HTTP port bound to
 0.0.0.0; read config from env; be stateless OR use the injected DATABASE_URL (db:true). NO PHI.
 
 Most tools are ONE component + optional DB. Rules:
-- name: lowercase [a-z0-9-], <=40 chars.
+- name: the tool/URL name ONLY — lowercase [a-z0-9-], <=40 chars. It is NOT the image path.
+- image: use the FULL image reference the person gives you, verbatim (registry/repo:tag). NEVER
+  build or guess the image path from the tool name — the image repo is usually named differently.
+  If they didn't give a full image ref, ASK for it; do not invent one.
+- component name: for a single-component tool set it to "app" (do NOT reuse the tool name). Use
+  distinct names (e.g. frontend, backend) only for a genuine multi-component tool.
 - exactly one component has public:true (it gets the URL).
 - ttl_days: ask if not given; suggest 7.
 Procedure: gather the fields, CONFIRM the spec back in one short sentence, and only after the
@@ -60,7 +68,8 @@ TOOLS = [
         "input_schema": {
             "type": "object",
             "properties": {
-                "name": {"type": "string"},
+                "name": {"type": "string",
+                         "description": "Tool/URL name ONLY (lowercase [a-z0-9-], <=40). Never used as the image path."},
                 "ttl_days": {"type": "integer"},
                 "db": {"type": "boolean"},
                 "components": {
@@ -68,8 +77,10 @@ TOOLS = [
                     "items": {
                         "type": "object",
                         "properties": {
-                            "name": {"type": "string"},
-                            "image": {"type": "string"},
+                            "name": {"type": "string",
+                                     "description": "Component name. Use 'app' for a single-component tool; never reuse the tool name."},
+                            "image": {"type": "string",
+                                      "description": "Full image reference verbatim from the user (registry/repo:tag). NEVER construct it from the tool name."},
                             "port": {"type": "integer"},
                             "public": {"type": "boolean"},
                             "env": {
@@ -103,7 +114,7 @@ def run_deploy(spec: dict) -> str:
             yaml.safe_dump(spec, f)
             spec_path = f.name
         r = subprocess.run(
-            ["python", SCAFFOLD, "--spec", spec_path, "--push",
+            ["python3", SCAFFOLD, "--spec", spec_path, "--push",
              "--deployment-path", DEPLOYMENT_PATH],
             capture_output=True, text=True,
         )
@@ -143,14 +154,20 @@ def agent_turn(thread: str, user_text: str) -> str:
 def on_mention(event, say):
     thread = event.get("thread_ts", event["ts"])
     text = event["text"].split(">", 1)[-1].strip()  # strip the @mention
-    say(text=agent_turn(thread, text), thread_ts=thread)
+    print(f"[mention] user={event.get('user')} text={text!r}")
+    reply = agent_turn(thread, text)
+    print(f"[reply] {reply[:120]}")
+    say(text=reply, thread_ts=thread)
 
 
 @app.event("message")
 def on_dm(event, say):
     if event.get("channel_type") == "im" and not event.get("bot_id"):
         thread = event.get("thread_ts", event["ts"])
-        say(text=agent_turn(thread, event["text"]), thread_ts=thread)
+        print(f"[dm] user={event.get('user')} text={event['text']!r}")
+        reply = agent_turn(thread, event["text"])
+        print(f"[reply] {reply[:120]}")
+        say(text=reply, thread_ts=thread)
 
 
 if __name__ == "__main__":
