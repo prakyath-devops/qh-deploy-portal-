@@ -45,7 +45,7 @@ https://<name>.tools-dev.qualifiedhealthai.com (on Tailscale). You do NOT build 
 YAML — you produce a spec and call deploy_tool.
 
 The person's image must: be one container image already pushed to the qh-mgmt Artifact Registry
-(us-docker.pkg.dev/qh-mgmt-439315/qh-docker/<repo>:<tag>); listen on one HTTP port bound to
+(us-central1-docker.pkg.dev/qh-mgmt-439315/qh-docker/<repo>:<tag>); listen on one HTTP port bound to
 0.0.0.0; read config from env; be stateless OR use the injected DATABASE_URL (db:true). NO PHI.
 
 Most tools are ONE component + optional DB. Rules:

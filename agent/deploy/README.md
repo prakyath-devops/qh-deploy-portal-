@@ -15,8 +15,8 @@ the reaper cleans them up. You maintain only two secrets (rotate ~yearly) and th
 ```bash
 # from the repo root
 docker build -f agent/Dockerfile \
-  -t us-docker.pkg.dev/qh-mgmt-439315/qh-docker/deploy-agent:latest .
-docker push us-docker.pkg.dev/qh-mgmt-439315/qh-docker/deploy-agent:latest
+  -t us-central1-docker.pkg.dev/qh-mgmt-439315/qh-docker/deploy-agent:latest .
+docker push us-central1-docker.pkg.dev/qh-mgmt-439315/qh-docker/deploy-agent:latest
 ```
 
 ## 3. Create the secrets on dev-control (once)

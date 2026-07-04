@@ -21,7 +21,7 @@ spec:
     spec:
       containers:
         - name: agent
-          image: us-docker.pkg.dev/qh-mgmt-439315/qh-docker/deploy-agent:latest
+          image: us-central1-docker.pkg.dev/qh-mgmt-439315/qh-docker/deploy-agent:latest
           envFrom:
             - secretRef:
                 name: deploy-agent-secrets

@@ -6,7 +6,7 @@ This repo is **the machine** — the golden template, the scaffolder, the agent 
 TTL reaper. It does **not** hold tool source or deployed manifests:
 
 - Tool **source** lives in the tool author's own repo; they build + push an **image** to the
-  qh-mgmt Artifact Registry (`us-docker.pkg.dev/qh-mgmt-439315/qh-docker/<tool>:<tag>`).
+  qh-mgmt Artifact Registry (`us-central1-docker.pkg.dev/qh-mgmt-439315/qh-docker/<tool>:<tag>`).
 - Tool **manifests** (the generated overlays) are written into **`qh-deployment`** at
   `qh-control/base/tools/<name>/`, where Fleet already watches and deploys to dev-control.
 - **`qh-platform` is never touched.**

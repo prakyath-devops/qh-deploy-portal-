@@ -4,6 +4,6 @@ ttl_days: 7
 db: false
 components:
   - name: app
-    image: us-docker.pkg.dev/qh-mgmt-439315/qh-docker/hello:1
+    image: us-central1-docker.pkg.dev/qh-mgmt-439315/qh-docker/hello:1
     port: 8080
     public: true

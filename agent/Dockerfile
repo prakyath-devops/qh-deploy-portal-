@@ -1,5 +1,5 @@
 # Build from the REPO ROOT so scaffold.py + template/ are in context:
-#   docker build -f agent/Dockerfile -t us-docker.pkg.dev/qh-mgmt-439315/qh-docker/deploy-agent:latest .
+#   docker build -f agent/Dockerfile -t us-central1-docker.pkg.dev/qh-mgmt-439315/qh-docker/deploy-agent:latest .
 FROM python:3.12-slim
 
 RUN apt-get update -qq && apt-get install -y -qq git openssh-client && rm -rf /var/lib/apt/lists/*

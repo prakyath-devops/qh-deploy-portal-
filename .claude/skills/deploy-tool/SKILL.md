@@ -17,7 +17,7 @@ You do NOT build images and you do NOT hand-write YAML. You produce a **spec**, 
 ## The app contract (tell the person this if their image doesn't fit)
 
 Their image must:
-1. Be **one container image** already pushed to `us-docker.pkg.dev/qh-mgmt-439315/qh-docker/<name>:<tag>`.
+1. Be **one container image** already pushed to `us-central1-docker.pkg.dev/qh-mgmt-439315/qh-docker/<name>:<tag>`.
 2. **Listen on one HTTP port**, bound to `0.0.0.0` (not localhost).
 3. Get all config from **env vars** — never bake in hostnames.
 4. Be **stateless**, or put all state in the injected `DATABASE_URL` (set `db: true`).

@@ -6,7 +6,7 @@ db: true                   # bundle an in-cluster Postgres (non-PHI only); injec
 components:
   # A "simple app" can be ONE component (backend serves the frontend) — this example shows two.
   - name: frontend
-    image: us-docker.pkg.dev/qh-mgmt-439315/qh-docker/inventory-fe:v1
+    image: us-central1-docker.pkg.dev/qh-mgmt-439315/qh-docker/inventory-fe:v1
     port: 3000
     public: true           # exactly one component must be public -> it gets the ingress + URL
     env:
@@ -14,6 +14,6 @@ components:
         value: http://inventory-backend:8080   # <name>-<component> in-cluster service DNS
 
   - name: backend
-    image: us-docker.pkg.dev/qh-mgmt-439315/qh-docker/inventory-be:v1
+    image: us-central1-docker.pkg.dev/qh-mgmt-439315/qh-docker/inventory-be:v1
     port: 8080
     public: false          # ClusterIP only — reachable in-namespace, never exposed
