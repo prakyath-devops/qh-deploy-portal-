@@ -31,6 +31,18 @@ def sh(*args: str, cwd: Path | None = None) -> None:
     subprocess.run(args, cwd=str(cwd) if cwd else None, check=True)
 
 
+def push_with_retry(work: Path, attempts: int = 3) -> None:
+    """Push to origin/main; rebase + retry on a concurrent update (matches scaffold.py)."""
+    for i in range(attempts):
+        r = subprocess.run(["git", "-C", str(work), "push", "origin", "main"],
+                           capture_output=True, text=True)
+        if r.returncode == 0:
+            return
+        if i == attempts - 1:
+            raise RuntimeError(f"push failed after {attempts} attempts: {r.stderr.strip()}")
+        sh("git", "-C", str(work), "pull", "--rebase", "origin", "main")
+
+
 def expired(ns_yaml: Path) -> bool:
     doc = yaml.safe_load(ns_yaml.read_text())
     exp = (doc.get("metadata", {}).get("annotations", {}) or {}).get("qh-tool/expires-at")
@@ -48,7 +60,7 @@ def remove_kustomization_entry(base_kust: Path, name: str) -> None:
 def main() -> None:
     if WORKDIR.exists():
         shutil.rmtree(WORKDIR)
-    sh("git", "clone", "--depth", "1", REPO_URL, str(WORKDIR))
+    sh("git", "clone", REPO_URL, str(WORKDIR))  # full clone so rebase-on-conflict has history
     sh("git", "-C", str(WORKDIR), "config", "user.email", "reaper@qualifiedhealthai.com")
     sh("git", "-C", str(WORKDIR), "config", "user.name", "qh-deploy-portal-reaper")
 
@@ -74,7 +86,7 @@ def main() -> None:
     sh("git", "-C", str(WORKDIR), "add", "-A")
     sh("git", "-C", str(WORKDIR), "commit", "-m",
        f"reap expired tools: {', '.join(reaped)}")
-    sh("git", "-C", str(WORKDIR), "push", "origin", "main")
+    push_with_retry(WORKDIR)
     print(f"reaped {len(reaped)}: {reaped} — Fleet will remove the namespaces")
 
 
