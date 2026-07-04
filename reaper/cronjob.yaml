@@ -10,16 +10,10 @@ kind: Namespace
 metadata:
   name: deploy-portal
 ---
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: reaper-src
-  namespace: deploy-portal
-data:
-  reaper.py: |
-    # populated from reaper/reaper.py — kubectl create configmap reaper-src --from-file=reaper.py
-    # (kept here as a placeholder; use the Makefile/README step to sync the real file)
----
+# NOTE: the `reaper-src` ConfigMap is NOT defined here on purpose — create it from the REAL
+# reaper.py so this file can't clobber it with a placeholder:
+#   kubectl -n deploy-portal create configmap reaper-src \
+#     --from-file=reaper.py=reaper/reaper.py --dry-run=client -o yaml | kubectl apply -f -
 apiVersion: batch/v1
 kind: CronJob
 metadata:
