@@ -348,11 +348,41 @@ def agent_turn(thread: str, user_text: str) -> str:
     return "I got stuck in a loop — please rephrase the request."
 
 
+HELP = """👋 *I deploy internal tools to dev-control.* DM me and I hand you a live URL on Tailscale — no Kubernetes, no kubectl.
+
+*First, push an image* (must be `linux/amd64`) to `us-central1-docker.pkg.dev/qh-mgmt-439315/qh-docker/`. I deploy images — I don't build them.
+
+*Then just tell me what to deploy:*
+`deploy my-app, image us-central1-docker.pkg.dev/qh-mgmt-439315/qh-docker/my-app:v1 on port 8080, no db, 7 days`
+
+I'll confirm, deploy, and reply with your URL.
+
+*I also handle the whole lifecycle — just ask:*
+• `status of my-app` — is it up?
+• `logs for my-app` — recent logs
+• `update my-app to …:v2` — new version, same URL, DB kept
+• `open a db console for my-app` — web SQL console to view/edit data
+
+*Two images?*
+`deploy my-app, frontend …-fe:v1 on 3000, backend …-be:v1 on 8080, backend needs a db, 7 days`
+
+⚠️ Internal, non-PHI, temporary tools only. URLs work on Tailscale/VPN. Tools auto-delete on their TTL.
+
+📖 Full guide: https://app.notion.com/p/Deploy-Bot-Ship-Internal-Tools-from-Slack-3941358f13e180c19f87c25c8393a0c0"""
+
+
+def is_help(text: str) -> bool:
+    return text.strip().lower().lstrip("/") in ("help", "?", "commands")
+
+
 @app.event("app_mention")
 def on_mention(event, say):
     thread = event.get("thread_ts", event["ts"])
     text = event["text"].split(">", 1)[-1].strip()  # strip the @mention
     print(f"[mention] user={event.get('user')} text={text!r}")
+    if is_help(text):
+        say(text=HELP, thread_ts=thread)
+        return
     reply = agent_turn(thread, text)
     print(f"[reply] {reply[:120]}")
     say(text=reply, thread_ts=thread)
@@ -363,6 +393,9 @@ def on_dm(event, say):
     if event.get("channel_type") == "im" and not event.get("bot_id"):
         thread = event.get("thread_ts", event["ts"])
         print(f"[dm] user={event.get('user')} text={event['text']!r}")
+        if is_help(event["text"]):
+            say(text=HELP, thread_ts=thread)
+            return
         reply = agent_turn(thread, event["text"])
         print(f"[reply] {reply[:120]}")
         say(text=reply, thread_ts=thread)
