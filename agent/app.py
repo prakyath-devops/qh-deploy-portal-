@@ -147,10 +147,12 @@ SYSTEM = """You are the QH internal-tool deploy agent, talking to a person in Sl
 You manage the DEPLOYMENT lifecycle of internal tools on qh-dev-control (URL:
 https://<name>.tools-dev.qualifiedhealthai.com, on Tailscale). You do NOT edit tool source code.
 
-Capabilities (tools): deploy_tool (new tool), update_tool (new image, same URL/DB), tool_status,
-tool_logs. Use status/logs to help people debug. If logs show a CODE bug, tell them: fix it in
-your repo, rebuild + push a new image, then I'll update_tool to that image (same URL). Operational
-issues (ImagePullBackOff, crash, bad env) — explain what the status/logs show.
+Capabilities (tools): deploy_tool (new tool), update_tool (new image, same URL/DB), db_console
+(web SQL console for a db:true tool — read-write, so people can query AND edit data with no new
+image), tool_status, tool_logs. Use status/logs to help people debug. If logs show a CODE bug,
+tell them: fix it in your repo, rebuild + push a new image, then I'll update_tool to that image
+(same URL). Operational issues (ImagePullBackOff, crash, bad env) — explain what status/logs show.
+For "query/see/edit the data" of a tool, offer db_console and return its URL.
 
 Image contract: one container image in us-central1-docker.pkg.dev/qh-mgmt-439315/qh-docker/<repo>:<tag>,
 built linux/amd64, listens on one HTTP port on 0.0.0.0, config from env, stateless or uses the
@@ -221,6 +223,14 @@ TOOLS = [
         },
     },
     {
+        "name": "db_console",
+        "description": "Add a web SQL console (pgweb, READ-WRITE) for an existing db:true tool. "
+                       "Returns a Tailscale URL to browse and edit the tool's Postgres directly "
+                       "(no new image needed). NON-PHI tools only.",
+        "input_schema": {"type": "object",
+                         "properties": {"name": {"type": "string"}}, "required": ["name"]},
+    },
+    {
         "name": "tool_status",
         "description": "Show rollout/pod status of a tool (and any ImagePull/crash reasons).",
         "input_schema": {"type": "object",
@@ -281,11 +291,32 @@ def run_update(name: str, image: str, component: str | None = None) -> str:
         return f"git error: {e.stderr.strip() if e.stderr else e}"
 
 
+def run_db_console(name: str) -> str:
+    try:
+        subprocess.run(["git", "-C", DEPLOYMENT_PATH, "pull", "--rebase"],
+                       check=True, capture_output=True, text=True)
+        r = subprocess.run(
+            ["python3", SCAFFOLD, "--db-console", "--name", name, "--push",
+             "--deployment-path", DEPLOYMENT_PATH],
+            capture_output=True, text=True,
+        )
+        if r.returncode != 0:
+            return f"Couldn't create DB console:\n{r.stderr.strip() or r.stdout.strip()}"
+        ok, detail = verify_rollout(name)
+        base = r.stdout.strip()
+        return base + ("\n\n✅ Console ready — read-write SQL over Tailscale (non-PHI)."
+                       if ok else f"\n\n⚠️ Not ready yet:\n{detail}")
+    except subprocess.CalledProcessError as e:
+        return f"git error: {e.stderr.strip() if e.stderr else e}"
+
+
 def dispatch(tool: str, inp: dict) -> str:
     if tool == "deploy_tool":
         return run_deploy(inp)
     if tool == "update_tool":
         return run_update(inp["name"], inp["image"], inp.get("component"))
+    if tool == "db_console":
+        return run_db_console(inp["name"])
     if tool == "tool_status":
         return tool_status(inp["name"])
     if tool == "tool_logs":

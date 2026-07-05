@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{NAME}}-dbconsole
+  namespace: {{NAMESPACE}}
+  labels:
+    qh-tool/name: {{NAME}}
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-dns01
+spec:
+  ingressClassName: nginx            # INTERNAL ingress (10.0.0.8), Tailscale-only
+  tls:
+    - hosts:
+        - {{DBHOST}}
+      secretName: {{NAME}}-dbconsole-tls
+  rules:
+    - host: {{DBHOST}}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{NAME}}-dbconsole
+                port:
+                  number: 8081

@@ -146,10 +146,48 @@ def do_update(dep: Path, base: Path, name: str, image: str,
         print("committed locally; re-run with --push to deploy")
 
 
+def add_tool_resources(kust: Path, entries: list[str]) -> None:
+    """Insert resource entries into a tool's kustomization.yaml (idempotent)."""
+    text = kust.read_text()
+    out, inserted = [], False
+    for line in text.splitlines():
+        out.append(line)
+        if not inserted and re.match(r"^resources:\s*$", line):
+            for e in entries:
+                if f"- {e}" not in text:
+                    out.append(f"  - {e}")
+            inserted = True
+    kust.write_text("\n".join(out) + "\n")
+
+
+def do_db_console(dep: Path, base: Path, name: str, push: bool) -> None:
+    """Add a read-write pgweb SQL console to an existing db:true tool (same namespace/secret)."""
+    if not NAME_RE.match(name):
+        die(f"name '{name}' is not dns-safe")
+    tool_dir = base / "tools" / name
+    if not tool_dir.exists():
+        die(f"tool '{name}' does not exist")
+    if not (tool_dir / "postgres.yaml").exists():
+        die(f"tool '{name}' has no bundled DB — nothing to connect a console to")
+    if (tool_dir / "pgweb-deployment.yaml").exists():
+        die(f"db console already exists for '{name}'")
+    v = {"NAME": name, "NAMESPACE": f"tools-{name}", "DBHOST": f"{name}-db.{DOMAIN}"}
+    for f in ("pgweb-deployment.yaml", "pgweb-service.yaml", "pgweb-ingress.yaml"):
+        (tool_dir / f).write_text(render(f + ".tmpl", v))
+    add_tool_resources(tool_dir / "kustomization.yaml",
+                       ["pgweb-deployment.yaml", "pgweb-service.yaml", "pgweb-ingress.yaml"])
+    commit_push(dep, f"add db console to {name}", push)
+    print(f"db console for '{name}' -> https://{name}-db.{DOMAIN}")
+    if not push:
+        print("committed locally; re-run with --push to deploy")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--spec", help="tool spec yaml (deploy mode)")
     ap.add_argument("--update", action="store_true", help="update an existing tool's image")
+    ap.add_argument("--db-console", dest="db_console", action="store_true",
+                    help="add a pgweb SQL console to an existing db:true tool")
     ap.add_argument("--name", help="tool name (update mode)")
     ap.add_argument("--image", help="new image ref (update mode)")
     ap.add_argument("--component", help="component to update (default: the only one)")
@@ -169,6 +207,12 @@ def main() -> None:
         if not (args.name and args.image):
             die("update mode needs --name and --image")
         do_update(dep, base, args.name, args.image, args.component, args.push)
+        return
+
+    if args.db_console:
+        if not args.name:
+            die("--db-console needs --name")
+        do_db_console(dep, base, args.name, args.push)
         return
 
     if not args.spec:

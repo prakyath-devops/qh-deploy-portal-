@@ -1,0 +1,34 @@
+# Web SQL console (pgweb) for a tool's bundled Postgres. Read-WRITE. NON-PHI only.
+# Reachable over Tailscale; connects via the tool's existing {{NAME}}-db secret (the bot
+# never sees the credential — K8s injects it at runtime).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{NAME}}-dbconsole
+  namespace: {{NAMESPACE}}
+  labels:
+    app: {{NAME}}-dbconsole
+    qh-tool/name: {{NAME}}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{NAME}}-dbconsole
+  template:
+    metadata:
+      labels:
+        app: {{NAME}}-dbconsole
+    spec:
+      containers:
+        - name: pgweb
+          image: sosedoff/pgweb:latest
+          command: ["pgweb"]
+          args: ["--bind=0.0.0.0", "--listen=8081"]
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{NAME}}-db
+                  key: DATABASE_URL
+          ports:
+            - containerPort: 8081
