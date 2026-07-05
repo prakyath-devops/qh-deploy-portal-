@@ -108,6 +108,9 @@ def git(deployment_path: Path, *args: str) -> str:
 
 def commit_push(dep: Path, msg: str, push: bool) -> None:
     git(dep, "add", "-A")
+    if not git(dep, "status", "--porcelain").strip():
+        print("no changes — nothing to commit")
+        return
     git(dep, "commit", "-m", msg)
     if push:
         git(dep, "pull", "--rebase")
@@ -169,15 +172,16 @@ def do_db_console(dep: Path, base: Path, name: str, push: bool) -> None:
         die(f"tool '{name}' does not exist")
     if not (tool_dir / "postgres.yaml").exists():
         die(f"tool '{name}' has no bundled DB — nothing to connect a console to")
-    if (tool_dir / "pgweb-deployment.yaml").exists():
-        die(f"db console already exists for '{name}'")
+    # Idempotent: re-render to REPAIR an existing console (e.g. after a template fix).
+    existed = (tool_dir / "pgweb-deployment.yaml").exists()
     v = {"NAME": name, "NAMESPACE": f"tools-{name}", "DBHOST": f"{name}-db.{DOMAIN}"}
     for f in ("pgweb-deployment.yaml", "pgweb-service.yaml", "pgweb-ingress.yaml"):
         (tool_dir / f).write_text(render(f + ".tmpl", v))
     add_tool_resources(tool_dir / "kustomization.yaml",
                        ["pgweb-deployment.yaml", "pgweb-service.yaml", "pgweb-ingress.yaml"])
-    commit_push(dep, f"add db console to {name}", push)
-    print(f"db console for '{name}' -> https://{name}-db.{DOMAIN}")
+    verb = "refresh" if existed else "add"
+    commit_push(dep, f"{verb} db console for {name}", push)
+    print(f"db console {'refreshed' if existed else 'created'} for '{name}' -> https://{name}-db.{DOMAIN}")
     if not push:
         print("committed locally; re-run with --push to deploy")
 

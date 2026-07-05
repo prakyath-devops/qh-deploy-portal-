@@ -22,10 +22,14 @@ spec:
       containers:
         - name: pgweb
           image: sosedoff/pgweb:latest
-          command: ["pgweb"]
-          args: ["--bind=0.0.0.0", "--listen=8081"]
+          # The bundled Postgres has no SSL, but pgweb (lib/pq) defaults to sslmode=require.
+          # Pass the URL explicitly with sslmode=disable. DB_URL (not DATABASE_URL) so pgweb
+          # only uses the --url flag, not an auto-read env var.
+          command: ["/bin/sh", "-c"]
+          args:
+            - 'exec pgweb --bind=0.0.0.0 --listen=8081 --url "$DB_URL?sslmode=disable"'
           env:
-            - name: DATABASE_URL
+            - name: DB_URL
               valueFrom:
                 secretKeyRef:
                   name: {{NAME}}-db
