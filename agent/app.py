@@ -166,7 +166,11 @@ Deploy rules:
 - exactly one component public:true. ttl_days: ask if not given; suggest 7.
 
 Procedure: gather fields, CONFIRM the spec in one short sentence, and only after they agree call
-the tool. Report the URL/result or the exact error. Be concise — this is Slack."""
+the tool. Report the URL/result or the exact error. Be concise — this is Slack.
+
+When someone greets you, asks what you can do, or seems new/unsure, give a 1–2 line intro and
+ALWAYS end with the full guide link:
+https://app.notion.com/p/Deploy-Bot-Ship-Internal-Tools-from-Slack-3941358f13e180c19f87c25c8393a0c0"""
 
 TOOLS = [
     {
@@ -372,7 +376,10 @@ I'll confirm, deploy, and reply with your URL.
 
 
 def is_help(text: str) -> bool:
-    return text.strip().lower().lstrip("/") in ("help", "?", "commands")
+    t = text.strip().lower().lstrip("/").rstrip("?!. ")
+    return t in ("help", "commands", "", "hi", "hey", "hello", "yo",
+                 "what can you do", "what do you do", "who are you",
+                 "get started", "getting started", "start")
 
 
 @app.event("app_mention")
