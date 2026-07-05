@@ -1,0 +1,33 @@
+# Read-only cluster access for the deploy agent, so it can verify rollouts and show
+# status/logs for tools. No write/exec — it can observe, not mutate the cluster.
+# (All cluster changes still happen via git -> Fleet.)
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: deploy-agent
+  namespace: deploy-portal
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: deploy-agent-read
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "events"]
+    verbs: ["get", "list"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets", "replicasets"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: deploy-agent-read
+subjects:
+  - kind: ServiceAccount
+    name: deploy-agent
+    namespace: deploy-portal
+roleRef:
+  kind: ClusterRole
+  name: deploy-agent-read
+  apiGroup: rbac.authorization.k8s.io

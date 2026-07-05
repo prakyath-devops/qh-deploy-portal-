@@ -19,6 +19,7 @@ spec:
       labels:
         app: deploy-agent
     spec:
+      serviceAccountName: deploy-agent      # read-only cluster access (see rbac.yaml)
       containers:
         - name: agent
           image: us-central1-docker.pkg.dev/qh-mgmt-439315/qh-docker/deploy-agent:latest

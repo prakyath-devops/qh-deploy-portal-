@@ -106,9 +106,53 @@ def git(deployment_path: Path, *args: str) -> str:
     return r.stdout.strip()
 
 
+def commit_push(dep: Path, msg: str, push: bool) -> None:
+    git(dep, "add", "-A")
+    git(dep, "commit", "-m", msg)
+    if push:
+        git(dep, "pull", "--rebase")
+        git(dep, "push", "origin", "main")
+
+
+IMAGE_RE = re.compile(r"^(\s*image:\s*).*$", re.M)
+
+
+def do_update(dep: Path, base: Path, name: str, image: str,
+              component: str | None, push: bool) -> None:
+    """Bump an existing tool's image tag. Same folder/namespace/ingress/URL/DB — just a new image."""
+    if not NAME_RE.match(name):
+        die(f"name '{name}' is not dns-safe")
+    tool_dir = base / "tools" / name
+    if not tool_dir.exists():
+        die(f"tool '{name}' does not exist — deploy it first")
+    if component:
+        dep_file = tool_dir / f"{component}-deployment.yaml"
+        if not dep_file.exists():
+            die(f"component '{component}' not found for tool '{name}'")
+    else:
+        dep_files = sorted(tool_dir.glob("*-deployment.yaml"))
+        if len(dep_files) != 1:
+            die(f"tool '{name}' has {len(dep_files)} components; pass --component")
+        dep_file = dep_files[0]
+    text = dep_file.read_text()
+    new_text, n = IMAGE_RE.subn(lambda m: m.group(1) + image, text)
+    if n != 1:
+        die(f"expected one image: line in {dep_file.name}, found {n}")
+    dep_file.write_text(new_text)
+    commit_push(dep, f"update tool {name}: image -> {image}", push)
+    print(f"updated tool '{name}' ({dep_file.name}) -> {image}")
+    print(f"URL (unchanged): https://{name}.{DOMAIN}")
+    if not push:
+        print("committed locally; re-run with --push to deploy")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--spec", required=True)
+    ap.add_argument("--spec", help="tool spec yaml (deploy mode)")
+    ap.add_argument("--update", action="store_true", help="update an existing tool's image")
+    ap.add_argument("--name", help="tool name (update mode)")
+    ap.add_argument("--image", help="new image ref (update mode)")
+    ap.add_argument("--component", help="component to update (default: the only one)")
     ap.add_argument("--push", action="store_true", help="also push to origin/main")
     ap.add_argument("--deployment-path", default=os.environ.get("QH_DEPLOYMENT_PATH"))
     ap.add_argument("--owner", default=os.environ.get("USER", "unknown"))
@@ -121,6 +165,14 @@ def main() -> None:
     if not (base / "kustomization.yaml").exists():
         die(f"{base}/kustomization.yaml not found — is this a qh-deployment clone?")
 
+    if args.update:
+        if not (args.name and args.image):
+            die("update mode needs --name and --image")
+        do_update(dep, base, args.name, args.image, args.component, args.push)
+        return
+
+    if not args.spec:
+        die("deploy mode needs --spec (or use --update)")
     spec = yaml.safe_load(Path(args.spec).read_text())
     validate(spec)
 
@@ -182,11 +234,7 @@ def main() -> None:
 
     update_base_kustomization(base / "kustomization.yaml", f"tools/{name}")
 
-    git(dep, "add", "-A")
-    git(dep, "commit", "-m", f"deploy tool {name} (ttl {ttl_days}d)")
-    if args.push:
-        git(dep, "pull", "--rebase")
-        git(dep, "push", "origin", "main")
+    commit_push(dep, f"deploy tool {name} (ttl {ttl_days}d)", args.push)
 
     print(f"scaffolded tool '{name}' -> {tool_dir}")
     print(f"URL (after Fleet syncs ~30s + cert issues): https://{host}")
